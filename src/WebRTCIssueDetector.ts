@@ -207,7 +207,7 @@ class WebRTCIssueDetector {
     }
 
     const OriginalRTCPeerConnection = (hasWindowObject ? window : global).RTCPeerConnection;
-    const onConnectionCreated = (...data:Parameters<typeof this.handleNewPeerConnection>) => this.handleNewPeerConnection(...data);
+    const onConnectionCreated = (data:AddConnectionPayload) => this.handleNewPeerConnection(data);
 
     function WIDRTCPeerConnection(rtcConfig?: RTCConfiguration) {
       const connection = new OriginalRTCPeerConnection(rtcConfig);
