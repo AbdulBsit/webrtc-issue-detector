@@ -46,8 +46,8 @@ describe('wid/lib/parser/CompositeRTCStatsParser', () => {
     const pc2Stats = createStatsReportItem();
     const statsParser = createStatsParserFake();
     const compositeParser = createCompositeStatsParser(statsParser);
-    compositeParser.addPeerConnection({ pc: pc1 });
-    compositeParser.addPeerConnection({ pc: pc2 });
+    compositeParser.addPeerConnection({ pc: pc1 ,id: "pc1"});
+    compositeParser.addPeerConnection({ pc: pc2 ,id: 'pc2'});
     sandbox.stub(statsParser, 'parse')
       .onFirstCall()
       .resolves(pc1Stats)
@@ -63,10 +63,11 @@ describe('wid/lib/parser/CompositeRTCStatsParser', () => {
   it('should remove connection from list', async () => {
     const pc = createPeerConnectionFake();
     const compositeParser = createCompositeStatsParser();
-    compositeParser.addPeerConnection({ pc });
+    const id = `${Date.now()}`;
+    compositeParser.addPeerConnection({ pc, id});
     const connectionsBeforeRemoval = compositeParser.listConnections();
 
-    compositeParser.removePeerConnection({ pc });
+    compositeParser.removePeerConnection({id});
 
     expect(connectionsBeforeRemoval).to.have.length(1);
     expect(connectionsBeforeRemoval[0].pc).to.eq(pc);
@@ -81,9 +82,9 @@ describe('wid/lib/parser/CompositeRTCStatsParser', () => {
     const pc3Stats = createStatsReportItem();
     const statsParser = createStatsParserFake();
     const compositeParser = createCompositeStatsParser(statsParser);
-    compositeParser.addPeerConnection({ pc: pc1 });
-    compositeParser.addPeerConnection({ pc: pc2 });
-    compositeParser.addPeerConnection({ pc: pc3 });
+    compositeParser.addPeerConnection({ pc: pc1, id:"pc1" });
+    compositeParser.addPeerConnection({ pc: pc2, id:'pc2' });
+    compositeParser.addPeerConnection({ pc: pc3, id:'pc3' });
     const parseDouble = sandbox.stub(statsParser, 'parse')
       .onFirstCall()
       .resolves(pc1Stats)
@@ -104,8 +105,8 @@ describe('wid/lib/parser/CompositeRTCStatsParser', () => {
     const pc1 = createPeerConnectionFake({ connectionState: 'closed' });
     const pc2 = createPeerConnectionFake();
     const compositeParser = createCompositeStatsParser();
-    compositeParser.addPeerConnection({ pc: pc1 });
-    compositeParser.addPeerConnection({ pc: pc2 });
+    compositeParser.addPeerConnection({ pc: pc1, id:'pc1' });
+    compositeParser.addPeerConnection({ pc: pc2, id:'pc2' });
     const connectionsBeforeParsing = compositeParser.listConnections();
 
     await compositeParser.parse();
@@ -123,8 +124,8 @@ describe('wid/lib/parser/CompositeRTCStatsParser', () => {
     const pc2Stats = createStatsReportItem();
     const statsParser = createStatsParserFake();
     const compositeParser = createCompositeStatsParser(statsParser);
-    compositeParser.addPeerConnection({ pc: pc1 });
-    compositeParser.addPeerConnection({ pc: pc2 });
+    compositeParser.addPeerConnection({ pc: pc1, id:'pc1' });
+    compositeParser.addPeerConnection({ pc: pc2, id:'pc2' });
     sandbox.stub(statsParser, 'parse')
       .onFirstCall()
       .resolves(pc1Stats)

@@ -5,12 +5,12 @@ import {
 import { checkIsConnectionClosed } from './utils';
 
 export interface AddConnectionPayload {
-  id?: string;
+  id: string;
   pc: RTCPeerConnection;
 }
 
 export interface RemoveConnectionPayload {
-  pc: RTCPeerConnection;
+  id:string
 }
 
 interface CompositeRTCStatsParserParams {
@@ -18,7 +18,7 @@ interface CompositeRTCStatsParserParams {
 }
 
 class CompositeRTCStatsParser implements CompositeStatsParser {
-  private readonly connections: ConnectionInfo[] = [];
+  private connections: Record<string,ConnectionInfo> = {}
 
   private readonly statsParser: StatsParser;
 
@@ -27,35 +27,35 @@ class CompositeRTCStatsParser implements CompositeStatsParser {
   }
 
   listConnections(): ConnectionInfo[] {
-    return [...this.connections];
+    return Object.keys(this.connections).map((id)=>this.connections[id])
   }
 
   addPeerConnection(payload: AddConnectionPayload): void {
-    this.connections.push({
-      id: payload.id ?? String(Date.now() + Math.random().toString(32)),
-      pc: payload.pc,
-    });
+    this.connections[payload.id] = {
+        id: payload.id ?? String(Date.now() + Math.random().toString(32)),
+        pc: payload.pc,
+    };
   }
 
   removePeerConnection(payload: RemoveConnectionPayload): void {
-    const pcIdxToDelete = this.connections.findIndex(({ pc }) => pc === payload.pc);
+    delete this.connections[payload.id]
+  }
 
-    if (pcIdxToDelete >= 0) {
-      this.removeConnectionsByIndexes([pcIdxToDelete]);
-    }
+  removeAllPeerConnection(): void {
+    this.connections = {}
   }
 
   async parse(): Promise<StatsReportItem[]> {
     // DESC order to remove elements afterwards without index shifting
-    const closedConnectionsIndexesDesc: number[] = [];
+    const closedConnectionsIds: string[] = []
 
-    const statsPromises = this.connections.map(
+    const statsPromises = Object.keys(this.connections).map(
       async (
-        info,
-        index: number,
+        id
       ): Promise<StatsReportItem | undefined> => {
+        const info = this.connections[id]
         if (checkIsConnectionClosed(info.pc)) {
-          closedConnectionsIndexesDesc.unshift(index);
+          closedConnectionsIds.push(info.id)
           return undefined;
         }
 
@@ -63,8 +63,10 @@ class CompositeRTCStatsParser implements CompositeStatsParser {
       },
     );
 
-    if (closedConnectionsIndexesDesc.length) {
-      this.removeConnectionsByIndexes(closedConnectionsIndexesDesc);
+    if (closedConnectionsIds.length) {
+        closedConnectionsIds.forEach((id)=>{
+          delete this.connections[id]
+        })
     }
 
     const statsItemsByPC = await Promise.all(statsPromises);
@@ -72,11 +74,6 @@ class CompositeRTCStatsParser implements CompositeStatsParser {
     return statsItemsByPC.filter((item) => item !== undefined) as StatsReportItem[];
   }
 
-  private removeConnectionsByIndexes(closedConnectionsIndexesDesc: number[]) {
-    closedConnectionsIndexesDesc.forEach((idx) => {
-      this.connections.splice(idx, 1);
-    });
-  }
 }
 
 export default CompositeRTCStatsParser;

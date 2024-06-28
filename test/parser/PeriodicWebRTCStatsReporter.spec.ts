@@ -8,6 +8,12 @@ import PeriodicWebRTCStatsReporter from '../../src/parser/PeriodicWebRTCStatsRep
 const createCompositeStatsParserFake = (): CompositeStatsParser => ({
   addPeerConnection(): void {
   },
+  removeAllPeerConnection():void {
+
+  },
+  removePeerConnection():void {
+
+  },
   async parse(): Promise<StatsReportItem[]> {
     return Promise.resolve([]);
   },

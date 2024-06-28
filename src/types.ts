@@ -1,5 +1,5 @@
 import PeriodicWebRTCStatsReporter from './parser/PeriodicWebRTCStatsReporter';
-import { AddConnectionPayload } from './parser/CompositeRTCStatsParser';
+import { AddConnectionPayload, RemoveConnectionPayload } from './parser/CompositeRTCStatsParser';
 import { WebRTCIssueEmitter } from './WebRTCIssueEmitter';
 
 export interface WIDWindow {
@@ -39,6 +39,8 @@ export interface ConnectionInfo {
 
 export interface CompositeStatsParser {
   addPeerConnection: (payload: AddConnectionPayload) => void;
+  removePeerConnection: (payload: RemoveConnectionPayload) => void;
+  removeAllPeerConnection: () => void;
   parse: () => Promise<StatsReportItem[]>;
 }
 

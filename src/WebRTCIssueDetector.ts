@@ -26,6 +26,7 @@ import {
 } from './detectors';
 import { CompositeRTCStatsParser, RTCStatsParser } from './parser';
 import createLogger from './utils/logger';
+import { AddConnectionPayload } from './parser/CompositeRTCStatsParser';
 
 class WebRTCIssueDetector {
   readonly eventEmitter: WebRTCIssueEmitter;
@@ -78,8 +79,13 @@ class WebRTCIssueDetector {
       compositeStatsParser: this.compositeStatsParser,
       getStatsInterval: params.getStatsInterval ?? 5000,
     });
+    const hasWindowObject = typeof window === "object";
+    const hasGlobalObject = typeof global == "object";
+    if(hasGlobalObject||hasWindowObject){
+      //@ts-ignore
+      ((hasGlobalObject ? global : window) as unknown as WIDWindow).wid = this;
+    }
 
-    (window as unknown as WIDWindow).wid = this;
     this.autoAddPeerConnections = params.autoAddPeerConnections ?? true;
     if (this.autoAddPeerConnections) {
       this.wrapRTCPeerConnection();
@@ -101,6 +107,26 @@ class WebRTCIssueDetector {
 
       this.eventEmitter.emit(EventType.StatsParsingFinished, payload);
     });
+  }
+
+  public startReporting(): void {
+    this.statsReporter.startReporting();
+  }
+
+  public stopReporting(): void {
+    this.statsReporter.stopReporting();
+  }
+
+  public addNewPeerConnection(data:AddConnectionPayload): void {
+    this.compositeStatsParser.addPeerConnection(data);
+  }
+
+  public removePeerConnection(id:string): void {
+    this.compositeStatsParser.removePeerConnection({id})
+  }
+
+  public removeAllPeerConnection(): void {
+    this.compositeStatsParser.removeAllPeerConnection()
   }
 
   public watchNewPeerConnections(): void {
@@ -131,9 +157,9 @@ class WebRTCIssueDetector {
     this.statsReporter.stopReporting();
   }
 
-  public handleNewPeerConnection(pc: RTCPeerConnection): void {
+  public handleNewPeerConnection(data:AddConnectionPayload): void {
     if (!this.#running && this.autoAddPeerConnections) {
-      this.logger.debug('Skip handling new peer connection. Detector is not running', pc);
+      this.logger.debug('Skip handling new peer connection. Detector is not running', data.pc);
       return;
     }
 
@@ -143,9 +169,9 @@ class WebRTCIssueDetector {
       this.statsReporter.startReporting();
     }
 
-    this.logger.debug('Handling new peer connection', pc);
+    this.logger.debug('Handling new peer connection', data.pc);
 
-    this.compositeStatsParser.addPeerConnection({ pc });
+    this.compositeStatsParser.addPeerConnection(data);
   }
 
   private emitIssues(issues: IssuePayload[]): void {
@@ -165,22 +191,33 @@ class WebRTCIssueDetector {
   }
 
   private wrapRTCPeerConnection(): void {
-    if (!window.RTCPeerConnection) {
-      this.logger.warn('No RTCPeerConnection found in browser window. Skipping');
+    const hasWindowObject = typeof window === "object";
+    const hasGlobalObject = typeof global == "object"
+    if(!hasGlobalObject || !hasWindowObject) {
+      this.logger.warn(
+          "Neither browser environment not mobile. Skipping"
+      );
       return;
     }
+    if (!(hasWindowObject ? window : global).RTCPeerConnection) {
+        this.logger.warn(
+            "No RTCPeerConnection found in browser window. Skipping"
+        );
+        return;
+    }
 
-    const OriginalRTCPeerConnection = window.RTCPeerConnection;
-    const onConnectionCreated = (pc: RTCPeerConnection) => this.handleNewPeerConnection(pc);
+    const OriginalRTCPeerConnection = (hasWindowObject ? window : global).RTCPeerConnection;
+    const onConnectionCreated = (...data:Parameters<typeof this.handleNewPeerConnection>) => this.handleNewPeerConnection(...data);
 
     function WIDRTCPeerConnection(rtcConfig?: RTCConfiguration) {
       const connection = new OriginalRTCPeerConnection(rtcConfig);
-      onConnectionCreated(connection);
+      onConnectionCreated({pc : connection, id : `${Date.now()}`});
       return connection;
     }
 
     WIDRTCPeerConnection.prototype = OriginalRTCPeerConnection.prototype;
-    (window.RTCPeerConnection as unknown) = WIDRTCPeerConnection;
+    ((hasWindowObject ? window : global).RTCPeerConnection as unknown) =
+        WIDRTCPeerConnection;
   }
 }
 
